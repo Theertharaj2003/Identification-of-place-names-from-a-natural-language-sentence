@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Highway Safety Warning System Monitor</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 10px;
+      background: #1a1a2e;
+      color: #eaeaea;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      margin-bottom: 10px;
+      color: #4ecca3;
+      text-align: center;
+    }
+    .chart-container {
+      width: 90vw;
+      max-width: 400px;
+      background: #16213e;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px #4ecca3;
+      margin-bottom: 20px;
+    }
+    canvas {
+      width: 100% !important;
+      height: 300px !important;
+    }
+    #status {
+      font-weight: bold;
+      font-size: 1.1em;
+      margin-bottom: 15px;
+      color: #f07167;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Highway Safety Warning System Monitor</h1>
+  <div id="status">Connecting...</div>
+  <div class="chart-container">
+    <canvas id="tempChart"></canvas>
+  </div>
+  <div class="chart-container">
+    <canvas id="irChart"></canvas>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+
+    // Setup temperature bar chart
+    const tempCtx = document.getElementById('tempChart').getContext('2d');
+    const tempChart = new Chart(tempCtx, {
+      type: 'bar',
+      data: {
+        labels: ['Temperature (°C)'],
+        datasets: [{
+          label: 'Temperature',
+          data: [0],
+          backgroundColor: '#4ecca3',
+          borderRadius: 10
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        scales: {
+          x: {
+            min: 0,
+            max: 100,
+            ticks: {
+              color: '#eaeaea'
+            },
+            grid: { color: '#44475a' }
+          },
+          y: {
+            ticks: { color: '#eaeaea' },
+            grid: { color: '#44475a' }
+          }
+        },
+        animation: false,
+        plugins: { legend: { labels: { color: '#eaeaea' } } }
+      }
+    });
+
+    // Setup IR sensor bar chart
+    const irCtx = document.getElementById('irChart').getContext('2d');
+    const irChart = new Chart(irCtx, {
+      type: 'bar',
+      data: {
+        labels: ['Obstacle Detected'],
+        datasets: [{
+          label: 'IR Sensor',
+          data: [0],
+          backgroundColor: '#f07167',
+          borderRadius: 10
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        scales: {
+          x: {
+            min: 0,
+            max: 1,
+            ticks: {
+              stepSize: 1,
+              color: '#eaeaea',
+              callback: function(value) {
+                return value == 1 ? 'No' : 'Yes';  // Inverted since 0=obstacle
+              }
+            },
+            grid: { color: '#44475a' }
+          },
+          y: {
+            ticks: { color: '#eaeaea' },
+            grid: { color: '#44475a' }
+          }
+        },
+        animation: false,
+        plugins: { legend: { labels: { color: '#eaeaea' } } }
+      }
+    });
+
+    // Fetch sensor data periodically from ESP32
+    async function fetchSensorData() {
+      try {
+        const response = await fetch('/sensor-data');
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        
+        // Update status message
+        let statusMsg = 'System Normal';
+        if (data.irValue === 0) {
+          statusMsg = 'Obstacle detected! Warning buzzer ON.';
+        } else if (data.temperature >= 50) {
+          statusMsg = 'High temperature detected! Warning buzzer ON.';
+        }
+        statusEl.textContent = statusMsg;
+
+        // Update charts data
+        tempChart.data.datasets[0].data[0] = data.temperature;
+        tempChart.update();
+
+        // For IR sensor invert 0/1 to meaningful for bar
+        irChart.data.datasets[0].data[0] = data.irValue === 0 ? 1 : 0;
+        irChart.update();
+
+      } catch (error) {
+        statusEl.textContent = 'Error fetching data';
+      }
+    }
+
+    // Initial fetch and then every 2 seconds
+    fetchSensorData();
+    setInterval(fetchSensorData, 2000);
+  </script>
+</body>
+</html>
