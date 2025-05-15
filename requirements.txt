@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+requests
+openai
+sentence-transformers
+transformers
+pydantic
+scikit-learn
+matplotlib
+seaborn
+python-dotenv
